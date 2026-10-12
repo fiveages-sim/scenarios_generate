@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from generate_scenario_from_llm import TokenUsage, combine_token_usage, format_token_usage
@@ -23,38 +23,38 @@ class SceneSpec:
 
 
 # Fixed 10k allocation based on the current dense waypoint set.
-# Small: 1-5 agents; medium: 1-8 agents; large: 1-10 agents.
+# Small: 1-3 agents; medium: 1-5 agents; large: 1-5 agents.
 SCENE_SPECS = (
-    SceneSpec("MV4AFHQKTKJZ2AABAAAAADQ8_usd", "medium", 181, 320, 1, 8),
-    SceneSpec("MV4AFHQKTKJZ2AABAAAAADY8_usd", "medium", 274, 348, 1, 8),
-    SceneSpec("MV4AFHQKTKJZ2AABAAAAAEA8_usd", "medium", 261, 345, 1, 8),
-    SceneSpec("MV4AFHQKTKJZ2AABAAAAAEI8_usd", "medium", 172, 317, 1, 8),
-    SceneSpec("MV5M25QKTKJZ2AABAAAAAAA8_usd", "medium", 240, 339, 1, 8),
-    SceneSpec("MV5M25QKTKJZ2AABAAAAAAI8_usd", "medium", 208, 329, 1, 8),
-    SceneSpec("MV5M25QKTKJZ2AABAAAAAAQ8_usd", "medium", 233, 337, 1, 8),
-    SceneSpec("MV5M25QKTKJZ2AABAAAAAAY8_usd", "medium", 208, 329, 1, 8),
-    SceneSpec("MV5M25QKTKJZ2AABAAAAAEI8_usd", "medium", 177, 319, 1, 8),
-    SceneSpec("MV7J6NIKTKJZ2AABAAAAAAA8_usd", "medium", 191, 324, 1, 8),
-    SceneSpec("MV7J6NIKTKJZ2AABAAAAAAI8_usd", "medium", 177, 319, 1, 8),
-    SceneSpec("MVJWVGYKTLDAYAABAAAAAAQ8_usd", "small", 142, 307, 1, 5),
-    SceneSpec("MVSGSAIKTKJ66AABAAAAADY8_usd", "small", 97, 288, 1, 5),
-    SceneSpec("MVSGSAIKTKJ66AABAAAAAEA8_usd", "small", 159, 313, 1, 5),
-    SceneSpec("MVSYCXYKTKJ66AABAAAAAAA8_usd", "small", 100, 289, 1, 5),
-    SceneSpec("MVSYCXYKTKJ66AABAAAAACY8_usd", "medium", 192, 324, 1, 8),
-    SceneSpec("MVSYCXYKTKJ66AABAAAAADA8_usd", "small", 86, 283, 1, 5),
-    SceneSpec("MVSYCXYKTKJ66AABAAAAADI8_usd", "small", 156, 312, 1, 5),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAABY8_usd", "large", 694, 436, 1, 10),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAACA8_usd", "large", 468, 394, 1, 10),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAACI8_usd", "medium", 192, 324, 1, 8),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAACQ8_usd", "small", 167, 316, 1, 5),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAACY8_usd", "large", 760, 447, 1, 10),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAADA8_usd", "large", 520, 404, 1, 10),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAADI8_usd", "medium", 219, 332, 1, 8),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAADQ8_usd", "small", 94, 287, 1, 5),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAADY8_usd", "medium", 347, 367, 1, 8),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAAEA8_usd", "large", 455, 391, 1, 10),
-    SceneSpec("MWF4WLIKTIFZIAABAAAAAEI8_usd", "small", 83, 282, 1, 5),
-    SceneSpec("MWHLEPQKTIFZIAABAAAAAAA8_usd", "small", 75, 278, 1, 5),
+    SceneSpec("MV4AFHQKTKJZ2AABAAAAADQ8_usd", "medium", 181, 320, 1, 5),
+    SceneSpec("MV4AFHQKTKJZ2AABAAAAADY8_usd", "medium", 274, 348, 1, 5),
+    SceneSpec("MV4AFHQKTKJZ2AABAAAAAEA8_usd", "medium", 261, 345, 1, 5),
+    SceneSpec("MV4AFHQKTKJZ2AABAAAAAEI8_usd", "medium", 172, 317, 1, 5),
+    SceneSpec("MV5M25QKTKJZ2AABAAAAAAA8_usd", "medium", 240, 339, 1, 5),
+    SceneSpec("MV5M25QKTKJZ2AABAAAAAAI8_usd", "medium", 208, 329, 1, 5),
+    SceneSpec("MV5M25QKTKJZ2AABAAAAAAQ8_usd", "medium", 233, 337, 1, 5),
+    SceneSpec("MV5M25QKTKJZ2AABAAAAAAY8_usd", "medium", 208, 329, 1, 5),
+    SceneSpec("MV5M25QKTKJZ2AABAAAAAEI8_usd", "medium", 177, 319, 1, 5),
+    SceneSpec("MV7J6NIKTKJZ2AABAAAAAAA8_usd", "medium", 191, 324, 1, 5),
+    SceneSpec("MV7J6NIKTKJZ2AABAAAAAAI8_usd", "medium", 177, 319, 1, 5),
+    SceneSpec("MVJWVGYKTLDAYAABAAAAAAQ8_usd", "small", 142, 307, 1, 3),
+    SceneSpec("MVSGSAIKTKJ66AABAAAAADY8_usd", "small", 97, 288, 1, 3),
+    SceneSpec("MVSGSAIKTKJ66AABAAAAAEA8_usd", "small", 159, 313, 1, 3),
+    SceneSpec("MVSYCXYKTKJ66AABAAAAAAA8_usd", "small", 100, 289, 1, 3),
+    SceneSpec("MVSYCXYKTKJ66AABAAAAACY8_usd", "medium", 192, 324, 1, 5),
+    SceneSpec("MVSYCXYKTKJ66AABAAAAADA8_usd", "small", 86, 283, 1, 3),
+    SceneSpec("MVSYCXYKTKJ66AABAAAAADI8_usd", "small", 156, 312, 1, 3),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAABY8_usd", "large", 694, 436, 1, 5),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAACA8_usd", "large", 468, 394, 1, 5),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAACI8_usd", "medium", 192, 324, 1, 5),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAACQ8_usd", "small", 167, 316, 1, 3),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAACY8_usd", "large", 760, 447, 1, 5),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAADA8_usd", "large", 520, 404, 1, 5),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAADI8_usd", "medium", 219, 332, 1, 5),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAADQ8_usd", "small", 94, 287, 1, 3),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAADY8_usd", "medium", 347, 367, 1, 5),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAAEA8_usd", "large", 455, 391, 1, 5),
+    SceneSpec("MWF4WLIKTIFZIAABAAAAAEI8_usd", "small", 83, 282, 1, 3),
+    SceneSpec("MWHLEPQKTIFZIAABAAAAAAA8_usd", "small", 75, 278, 1, 3),
 )
 
 EXPECTED_TOTAL = 10_000
@@ -76,6 +76,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-attempts", type=int, default=3)
     parser.add_argument("--seed", type=int, default=20260930)
     parser.add_argument("--history-window", type=int, default=12)
+    parser.add_argument(
+        "--count-per-scene",
+        type=int,
+        help="Override each selected scene's quota for a small test run.",
+    )
     parser.add_argument(
         "--only-scene",
         action="append",
@@ -140,6 +145,8 @@ def main() -> None:
         raise ValueError("--max-attempts must be at least 1")
     if args.history_window < 0:
         raise ValueError("--history-window cannot be negative")
+    if args.count_per_scene is not None and args.count_per_scene < 1:
+        raise ValueError("--count-per-scene must be at least 1")
 
     specs = list(SCENE_SPECS)
     if args.only_scene:
@@ -149,6 +156,9 @@ def main() -> None:
         if unknown:
             raise ValueError(f"unknown fixed scene ID(s): {', '.join(unknown)}")
         specs = [spec for spec in specs if spec.scene_id in requested]
+
+    if args.count_per_scene is not None:
+        specs = [replace(spec, scenario_count=args.count_per_scene) for spec in specs]
 
     print_plan(specs)
     if args.dry_run:
@@ -170,7 +180,7 @@ def main() -> None:
     environment.setdefault("PYTHONIOENCODING", "utf-8")
 
     fixed_scene_indexes = {spec.scene_id: index for index, spec in enumerate(SCENE_SPECS)}
-    for spec in specs:
+    for selected_scene_index, spec in enumerate(specs, start=1):
         scene_dir = scenes_root / spec.scene_id
         if not scene_dir.is_dir():
             raise FileNotFoundError(f"fixed scene directory not found: {scene_dir}")

@@ -20,6 +20,10 @@ configs/*secret*.yaml
 new_outputs/
 new_outputs_*/
 test_outputs*/
+/test/
+/test_interaction_*/
+/test*.log
+/waypoints/
 previews/
 backups/
 *.rar

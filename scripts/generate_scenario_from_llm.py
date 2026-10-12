@@ -409,7 +409,7 @@ def build_llm_prompt(
 - 机器人 waypoints 不要过密，通常 3 到 6 个即可，包含中间点和最终目标点。
 - 机器人优先在开阔区域、宽走廊和宽通道中移动，尽量选择离墙、家具、柜台、桌椅、障碍物都有一定距离的 waypoint。
 - 机器人半径比行人大，不能把 start_waypoint 或任何 robot waypoint 设计在狭窄位置、贴近墙边、贴近障碍物边缘或人流密集的门口。
-- 机器人路线中行人可以稍微出现在机器人视野里，但不要让机器人和行人的路线产生明显碰撞或迎面冲突。
+- 机器人和行人的路线可以有轻微交互，例如自然的接近、交叉或错身，但不要设计过于复杂的交互或密集人群交互，也不要产生明显碰撞或没有避让空间的迎面冲突。
 - 机器人路线可以有简单转弯，但不要设计复杂巡逻、过长路线或多段任务。"""
         robot_schema = """"robot": {
     "name": "robot",
@@ -423,12 +423,11 @@ def build_llm_prompt(
         robot_waypoint_rule = (
             "- 机器人只需要选择 start_waypoint 和 goal_waypoint，不要输出中途 waypoint，不要输出 robot.waypoints。"
         )
-        robot_behavior_rules = """- 机器人路径必须和行人路径一起考虑，不能只单独生成；机器人只需要 start 和 goal 表示大致方向，路线不要太长，不要太复杂。
-- 机器人路径可以简单一点，但 start 和 goal 不要太近，内部规划时应想象机器人至少经过 5 个候选 waypoint 的距离后才能到达 goal；最终 JSON 仍然只输出 start_waypoint 和 goal_waypoint，不要输出中间经过点，不要设计复杂巡逻、长距离穿越或多段任务。
+        robot_behavior_rules = """- 机器人路径必须和行人路径一起考虑，不能只单独生成；机器人只需要 start 和 goal 表示大致方向。
+- start 和 goal 不要太近，内部规划时应想象机器人至少经过 15 个候选 waypoint 的距离后才能到达 goal；最终 JSON 仍然只输出 start_waypoint 和 goal_waypoint，不要输出中间经过点，不要设计复杂巡逻、长距离穿越或多段任务。
 - 机器人优先在开阔区域、宽走廊和宽通道中移动，尽量选择离墙、家具、柜台、桌椅、障碍物都有一定距离的 waypoint。
 - 机器人半径比行人大，不能把 start_waypoint 或 goal_waypoint 设计在狭窄位置、贴近墙边、贴近障碍物边缘或人流密集的门口。
-- 机器人路线中行人可以稍微出现在机器人视野里，但不要让机器人和行人的路线产生明显碰撞或迎面冲突。
-- 机器人 start 和 goal 应尽量在同一个连通、开阔、可安全通行的区域或宽通道内；除非用户明确要求，不要让机器人跨很多区域、穿很多门或走复杂长路线。"""
+- 机器人和行人的路线可以有轻微交互，例如自然的接近、交叉或错身，但不要设计过于复杂的交互或密集人群交互，也不要产生明显碰撞或没有避让空间的迎面冲突。"""
         robot_schema = """"robot": {
     "name": "robot",
     "from_region": {"region_id": 0, "label": "waiting_area"},
@@ -501,7 +500,7 @@ def build_llm_prompt(
 - 如果没有对应 region_transitions，才根据图像和连接图选择最合理的门两侧 waypoint。
 - 多个行人分别生成独立 agent，命名为 hunav_1、hunav_2、hunav_3等。
 {robot_behavior_rules}
-- 机器人 start_waypoint 与最终目标 waypoint 之间的世界坐标直线距离应至少为 5 米；请选择在俯视图上明显分离的起点和终点，不要选择彼此接近的 waypoint。
+- 机器人 start_waypoint 与最终目标 waypoint 之间的世界坐标直线距离必须超过 8 米；请选择在俯视图上明显分离的起点和终点。
 - 必须输出一个 robot 对象；机器人对象的 name 必须是 "robot"；如果用户没有明确机器人数量，默认只生成 1 条机器人路径。
 - 场景专用规则、区域连通规则、region_transitions 和 navmesh 约束同时适用于行人和机器人。
 - role 和 behavior 简短英文即可；behavior 不要包含坐标细节。

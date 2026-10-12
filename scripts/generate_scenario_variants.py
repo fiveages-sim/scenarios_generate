@@ -32,6 +32,11 @@ REQUIRED_SCENE_FILES = (
     "scene_prompt.txt",
 )
 
+AGENT_COUNT_WEIGHT_UNITS = {
+    (1, 3): {1: 30, 2: 50, 3: 20},
+    (1, 5): {1: 15, 2: 50, 3: 20, 4: 10, 5: 5},
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -66,12 +71,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--min-pedestrians",
         type=int,
-        help="Minimum agent count for a deterministic balanced schedule.",
+        help="Minimum agent count for a deterministic weighted schedule.",
     )
     parser.add_argument(
         "--max-pedestrians",
         type=int,
-        help="Maximum agent count for a deterministic balanced schedule.",
+        help="Maximum agent count for a deterministic weighted schedule.",
     )
     parser.add_argument(
         "--seed",
@@ -118,7 +123,7 @@ def build_agent_count_schedule(
     maximum: int | None,
     seed: int,
 ) -> list[int]:
-    """Return stable per-scenario counts, balanced across an inclusive range."""
+    """Return stable per-scenario counts using configured range weights."""
     if minimum is None and maximum is None:
         selected = 2 if fixed_count is None else fixed_count
         if selected < 1:
@@ -137,7 +142,33 @@ def build_agent_count_schedule(
         raise ValueError("--max-pedestrians must be greater than or equal to the minimum")
 
     choices = list(range(minimum, maximum + 1))
-    schedule = [choices[index % len(choices)] for index in range(count)]
+    weight_units = AGENT_COUNT_WEIGHT_UNITS.get((minimum, maximum))
+    if weight_units is None:
+        weight_units = {choice: 1 for choice in choices}
+
+    total_units = sum(weight_units.values())
+    allocations = {
+        choice: count * weight_units[choice] // total_units
+        for choice in choices
+    }
+    remaining = count - sum(allocations.values())
+    remainder_order = sorted(
+        choices,
+        key=lambda choice: (
+            count * weight_units[choice] % total_units,
+            weight_units[choice],
+            -choice,
+        ),
+        reverse=True,
+    )
+    for choice in remainder_order[:remaining]:
+        allocations[choice] += 1
+
+    schedule = [
+        choice
+        for choice in choices
+        for _ in range(allocations[choice])
+    ]
     random.Random(seed).shuffle(schedule)
     return schedule
 
@@ -274,7 +305,7 @@ def batch_variant_prompt(
 请严格保持下面的数组顺序和人数：
 {item_lines}
 同一批内各条 scenario 的完整行人和机器人 waypoint 路线组合必须互不相同。
-同一批内不要复用完全相同的 robot start_waypoint 到 goal_waypoint 组合；机器人移动方向和距离也应尽量有变化，不要让所有路线都刚好接近 5 米。
+同一批内不要复用完全相同的 robot start_waypoint 到 goal_waypoint 组合。
 在场景连通和安全允许的前提下，行人的主要 waypoint 路线也应尽量避免在批内重复。
 优先通过不同的起点、目标区域和 waypoint 路线形成有意义的差异；角色、职业或速度变化不能作为唯一差异。
 仍须严格遵守场景连通规则、region_transitions 和 navmesh 约束。{exclusion}{retry_rule}"""

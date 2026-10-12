@@ -153,15 +153,20 @@ scenario 的 token。平均值只是统计估算，API 只能返回整批的准�
 `scripts/generate_scenario_dataset.py` 固定保存了当前 30 个 dense waypoint 场景的
 大小分类和 10,000 条配额，不会在运行时重新计算：
 
-- 小场景：1–5 人。
-- 中场景：1–8 人。
-- 大场景：1–10 人。
+- 小场景：1–3 人。
+- 中场景：1–5 人。
+- 大场景：1–5 人。
+
+人数按固定随机种子打乱，并采用以下目标比例：
+
+- 1–3 人场景：1 人占 30%，2 人占 50%，3 人占 20%。
+- 1–5 人场景：1 人占 15%，2 人占 50%，3 人占 20%，4 人占 10%，5 人占 5%。
 
 数据集入口固定使用 `--batch-size 10`，所以图片、waypoint 和场景说明在一批内
 只发送一次。比如某个场景需要 278 条，会发出 27 个十条批次和 1 个八条批次。
 每批必须完整通过人数、职业、路线和重复检查；无效时整批重试。
 
-每个场景中的人数按固定随机种子均衡排列，因此断点续跑和单独运行某个场景时，
+每个场景中的人数按上述权重分配并用固定随机种子排列，因此断点续跑和单独运行某个场景时，
 相同的 scenario 编号仍会得到相同的目标人数。运行全部数据：
 
 ```bash
@@ -185,6 +190,41 @@ python3 scripts/generate_scenario_dataset.py \
 场景的数百张预览拼成总览图。完全不需要预览时可以添加 `--skip-previews`；确实需要
 总览时添加 `--render-overview`。使用 `--only-scene <scene_id>` 可以只生成固定计划中的
 某个场景。程序会跳过已存在且有效的结果和预览，并在最后输出跨全部场景的 token 总计。
+
+### 服务器使用 GPT-5.6 Sol
+
+仓库只提交不含密钥的配置模板，本地 `*.local.yaml` 和生成结果不会上传。
+安装依赖后，在 Bash 中设置 API 地址和密钥（输入的密钥不会回显）：
+
+```bash
+export DMX_BASE_URL="https://www.dmxapi.cn/v1"
+read -r -s -p "DMX API key: " DMX_API_KEY
+export DMX_API_KEY
+```
+
+先对全部 30 个场景各生成 2 条，共 60 条，保留独立预览图：
+
+```bash
+python3 -u scripts/generate_scenario_dataset.py \
+  --llm-config configs/gpt56-sol.example.yaml \
+  --prompt "生成自然、合理且相互不同的室内人机移动场景，严格遵守场景语义、连通性和navmesh约束" \
+  --count-per-scene 2 \
+  --output-root test_outputs_all_scenes_2_gpt56 \
+  --seed 20261012
+```
+
+生成完整 10,000 条时，省略 `--count-per-scene`，并使用独立输出目录：
+
+```bash
+python3 -u scripts/generate_scenario_dataset.py \
+  --llm-config configs/gpt56-sol.example.yaml \
+  --prompt "生成自然、合理且相互不同的室内人机移动场景，严格遵守场景语义、连通性和navmesh约束" \
+  --output-root new_outputs_10k_gpt56 \
+  --seed 20261012
+```
+
+续跑时保持输出目录、配额、seed 和人数设置一致。测试和正式采集不要共用输出目录，
+因为人数权重取整结果随配额变化。
 
 如果生成阶段使用了 `--skip-previews`，之后仍可在不配置 LLM、也不调用 API 的情况下
 离线生成每条独立预览：
